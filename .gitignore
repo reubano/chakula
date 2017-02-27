@@ -14,3 +14,5 @@ tags
 tests/test-output
 __pycache__/
 docs/_build/
+.scripttest/.scripttest-test-dir.txt
+.cache/v/cache/lastfailed

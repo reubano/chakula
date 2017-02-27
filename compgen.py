@@ -1,24 +1,24 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
+# vim: sw=4:ts=4:expandtab
 
 '''Generate bash/zsh completion files for rsstail.'''
 
 from sys import argv, stdout, exit
 from rsstail.main import parseopt
 
-
 usage = 'compgen.py bash|zsh > completion.sh\n'
 
 if len(argv) == 1 or argv[1] not in ('zsh', 'bash'):
-    stdout.write(usage) ; exit(1)
+    stdout.write(usage)
+    exit(1)
 
 # Get all options from all option groups.
 parser = parseopt()[0]
 options = sum([i.option_list for i in parser.option_groups], [])
 
-
 zsh_tmpl = '''\
-#compdef rsstail
+# compdef rsstail
 
 # Automatically generated zsh completion for rsstail.py
 # http://github.com/gvalkov/rsstail.py
@@ -52,8 +52,8 @@ complete -F _rsstail rsstail
 # vim: ft=bash:
 '''
 
-
 escapable = lambda c: c == '[' or c == ']' or c == '"'
+
 
 def escape(s):
     res = [('\\%s' % c) if escapable(c) else c for c in s]
@@ -69,7 +69,7 @@ def zshopts():
         else:
             return ''
 
-    long_opts  = [(a._long_opts, getmetavar(a), a.help)  for a in options]
+    long_opts = [(a._long_opts, getmetavar(a), a.help) for a in options]
     short_opts = [(a._short_opts, getmetavar(a), a.help) for a in options]
 
     for op in (long_opts, short_opts):
@@ -78,16 +78,14 @@ def zshopts():
 
 
 def bashopts():
-    opts  = [a._long_opts  for a in options]
+    opts = [a._long_opts for a in options]
     opts += [a._short_opts for a in options]
-    opts  = sum(opts, [])
-
+    opts = sum(opts, [])
     return ' '.join(opts)
 
 
 if argv[1] == 'zsh':
     opts = ['%s \\' % i for i in zshopts()]
     stdout.write(zsh_tmpl % '\n'.join(opts))
-
 elif argv[1] == 'bash':
     stdout.write(bash_tmpl % bashopts())

@@ -1,4 +1,9 @@
-# make github and sdist happy
-include README.rst
-include etc/rsstail.sh
-include etc/_rsstail
+recursive-include tests *
+recursive-include data *
+recursive-include helpers *
+recursive-include docs *
+recursive-include examples *
+recursive-include dtc *
+include LICENSE
+include *.rst
+include *requirements.txt
