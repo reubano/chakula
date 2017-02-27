@@ -6,6 +6,7 @@ import time
 
 from datetime import datetime as dt
 from functools import reduce, lru_cache
+from traceback import format_exception
 
 import feedparser
 import pygogo as gogo
@@ -27,7 +28,7 @@ def last_update(entry_dates):
     return max(entry_dates) if entry_dates else time.strptime('1900', '%Y')
 
 
-def write_entries(entries=None, **kwargs):
+def write_entries(entries, **kwargs):
     stream = kwargs.get('stream', sys.stdout)
     seen = kwargs.get('seen')
     formatter = kwargs.get('formatter')
@@ -79,36 +80,49 @@ def parse_url(url, iteration, initial=None, **kwargs):
         entries = [
             entry for entry in entries if entry.published_parsed > newer_than]
 
-    if not {'modified_parsed', 'updated_parsed'}.issubset(feed):
-        _dates = (e.updated_parsed for e in entries if e.get('updated_parsed'))
-        dates = tuple(_dates)
+    if not feed.get('updated_parsed') and entries:
+        dates = (e.updated_parsed for e in entries if e.get('updated_parsed'))
+        def_updated = last_update(tuple(dates))
+    else:
+        def_updated = updated
 
-    return {
-        'entries': entries,
+    info = {
         'etag': feed.get('etag', kwargs.get('etag')),
-        'modified': feed.get('modified_parsed') or last_update(dates),
-        'updated': feed.get('updated_parsed') or last_update(dates)}
+        'modified': feed.get('modified_parsed'),
+        'updated': feed.get('updated_parsed') or def_updated}
+
+    return entries, info
 
 
 def tail(urls, iteration=0, interval=300, extra=None, **kwargs):
     logger = kwargs.get('logger', LOGGER)
+    extra = extra or {}
 
     if kwargs.get('iterations') and iteration >= kwargs['iterations']:
         msg = 'maximum number of iterations reached: %d'
         logger.debug(msg, kwargs['iterations'])
-        return kwargs
+        return extra
     elif iteration:
         # sleep first so that we don't have to wait an interval before checking
         # iteration count
         logger.debug('sleeping for %d seconds', interval)
         time.sleep(interval)
 
-    extra = extra or {}
-
     for url in urls:
         kwargs.update(extra.get(url, {}))
-        extra[url] = parse_url(url, iteration, **kwargs)
-        kwargs.update(extra[url])
-        write_entries(**kwargs)
+
+        try:
+            entries, extra[url] = parse_url(url, iteration, **kwargs)
+            kwargs.update(extra[url])
+            write_entries(entries, **kwargs)
+        except Exception:
+            if kwargs.get('fail'):
+                raise
+            else:
+                traceback_strings = format_exception(*sys.exc_info())
+                logger.error(''.join(traceback_strings))
+
+    if kwargs.get('handler'):
+        kwargs['handler'](extra)
 
     return tail(urls, iteration + 1, interval=interval, extra=extra, **kwargs)

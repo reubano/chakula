@@ -4,13 +4,17 @@
 """ A Python logging library with super powers """
 
 import sys
-import signal
 import textwrap
 
 from os import getcwd, path as p
 from argparse import RawTextHelpFormatter, ArgumentParser
+from pickle import dump, load
+from io import open
+from functools import partial
+from signal import signal, SIGINT
 
 import pygogo as gogo
+
 from dateutil.parser import parse as parse_date
 from rsstail import tail, __version__
 from rsstail.formatter import PLACEHOLDERS, Formatter
@@ -126,6 +130,10 @@ parser.add_argument(
     help='The output format (overrides other format options).')
 
 parser.add_argument(
+    '-c', '--cache', action='store',
+    help='File path to store feed information across multiple runs.')
+
+parser.add_argument(
     '-r', '--reverse', action='store_true',
     help='Show entries in reverse order.')
 
@@ -147,13 +155,14 @@ parser.add_argument(
     default=False)
 
 
-def die(msg, fail=False, *args):
-    sys.exit(msg) if fail else logger.error(msg, *args)
-
-
 def sigint_handler(num=None, frame=None):
-    logger.info('... quitting\n', file=sys.stderr)
+    logger.info('... quitting\n')
     sys.exit(0)
+
+
+def update_cache(path, extra):
+    with open(path, 'wb') as f:
+        dump(extra, f)
 
 
 def run():
@@ -161,22 +170,17 @@ def run():
     args = parser.parse_args()
     kwargs = {'monolog': True, 'verbose': args.verbose}
     logger = gogo.Gogo(__name__, **kwargs).get_logger('run')
+    signal(SIGINT, sigint_handler)
 
     if args.version:
         logger.info('rsstail v%s' % __version__)
         exit(0)
 
     if args.newer:
-        try:
-            newer = parse_date(args.newer).timetuple()
-        except ValueError as err:
-            die(err, True)
-
+        newer = parse_date(args.newer).timetuple()
         logger.debug('showing entries newer than %s', newer)
     else:
         newer = None
-
-    signal.signal(signal.SIGINT, sigint_handler)
 
     if args.format:
         fmt = args.format.replace('\\n', '\n')
@@ -193,7 +197,7 @@ def run():
         'seen': set() if args.unique else None, 'newer': newer,
         'reverse': args.reverse, 'iterations': args.iterations,
         'interval': args.interval, 'formatter': formatter,
-        'initial': args.initial, 'logger': logger}
+        'initial': args.initial, 'logger': logger, 'fail': args.fail}
 
     first = args.urls[0]
 
@@ -206,13 +210,19 @@ def run():
     else:
         urls = args.urls
 
-    tail(urls, **info)
-    # try:
-    #     tail(args.urls, **info)
-    # except Exception as err:
-    #     die(err, args.fail)
-    # else:
-    #     sys.exit(0)
+    if args.cache:
+        try:
+            with open(args.cache, 'rb') as f:
+                extra = load(f)
+        except FileNotFoundError:
+            extra = {}
+
+        info['handler'] = partial(update_cache, args.cache)
+    else:
+        extra = {}
+
+    tail(urls, extra=extra, **info)
+    sys.exit(0)
 
 
 if __name__ == '__main__':

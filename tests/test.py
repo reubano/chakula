@@ -99,6 +99,8 @@ def main(script, tests, verbose=False, stop=True):
 if __name__ == '__main__':
     script = p.join(PARENT_DIR, 'bin', 'rsstail')
     feed = p.join(CUR_DIR, 'feeds', 'jenkins.rss')
+    cache_path = p.join(PARENT_DIR, '.scripttest', 'cache')
+    cache = '--cache {}'.format(cache_path)
 
     exp = [
         'pip_python2.6 #1006 (FAILURE)\n',
@@ -124,6 +126,8 @@ if __name__ == '__main__':
         (['--iterations 1', '--newer "2012/01/04 11:00"'], [feed], exp[0]),
         (['--iterations 1', '--newer "2012/01/04"'], [feed], ''.join(exp[:2])),
         (['--iterations 1', '--newer "$#@!@#"'], [feed], False),
+        ([cache, '--iterations 1', '-s title'], [feed], ''.join(exp)),
+        ([cache, '--iterations 1', '-s title'], [feed], ''),
     ]
 
     main(script, tests)
