@@ -165,6 +165,16 @@ def update_cache(path, extra):
         dump(extra, f)
 
 
+def load_extra(urls, cache_path):
+    try:
+        with open(cache_path, 'rb') as f:
+            extra = load(f)
+    except FileNotFoundError:
+        extra = {}
+
+    return extra
+
+
 def run():
     """CLI runner"""
     args = parser.parse_args()
@@ -211,13 +221,8 @@ def run():
         urls = args.urls
 
     if args.cache:
-        try:
-            with open(args.cache, 'rb') as f:
-                extra = load(f)
-        except FileNotFoundError:
-            extra = {}
-
-        info['handler'] = partial(update_cache, args.cache)
+        extra = load_extra(urls, args.cache)
+        info['tail_handler'] = partial(update_cache, args.cache)
     else:
         extra = {}
 

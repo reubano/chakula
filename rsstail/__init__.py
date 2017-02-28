@@ -52,6 +52,9 @@ def write_entries(entries, **kwargs):
 
     stream.flush()
 
+    if kwargs.get('write_handler'):
+        kwargs['write_handler'](to_add)
+
 
 def parse_url(url, iteration, initial=None, **kwargs):
     logger = kwargs.get('logger', LOGGER)
@@ -122,7 +125,7 @@ def tail(urls, iteration=0, interval=300, extra=None, **kwargs):
                 traceback_strings = format_exception(*sys.exc_info())
                 logger.error(''.join(traceback_strings))
 
-    if kwargs.get('handler'):
-        kwargs['handler'](extra)
+    if kwargs.get('tail_handler'):
+        kwargs['tail_handler'](extra)
 
     return tail(urls, iteration + 1, interval=interval, extra=extra, **kwargs)
