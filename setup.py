@@ -1,67 +1,97 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
+# vim: sw=4:ts=4:expandtab
 
-from os import getuid
-from setuptools import setup
-from os.path import isdir
+import sys
 
+from os import path as p, getuid
+
+import pkutils
+
+try:
+    from setuptools import setup, find_packages
+except ImportError:
+    from distutils.core import setup, find_packages
+
+PARENT_DIR = p.abspath(p.dirname(__file__))
+
+sys.dont_write_bytecode = True
+requirements = set(pkutils.parse_requirements('requirements.txt'))
+dev_requirements = set(pkutils.parse_requirements('dev-requirements.txt'))
+readme = pkutils.read('README.rst')
+module = pkutils.parse_module(p.join(PARENT_DIR, 'rsstail', '__init__.py'))
+license = module.__license__
+version = module.__version__
+project = module.__package_name__
+description = module.__description__
+user = 'reubano'
+
+setup_require = [r for r in dev_requirements if 'pkutils' in r]
 
 classifiers = [
-    'Environment :: Console',
-    'Topic :: Utilities',
-    'Operating System :: OS Independent',
-    'Programming Language :: Python :: 2',
+    pkutils.LICENSES[license],
+    pkutils.get_status(version),
+    'Natural Language :: English',
     'Programming Language :: Python :: 3',
-    'License :: OSI Approved :: BSD License',
-    'Development Status :: 5 - Production/Stable',
+    'Programming Language :: Python :: 3.4',
+    'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: Implementation :: PyPy',
+    'Environment :: Console',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Utilities',
+    'Framework :: Flask',
+    'Operating System :: OS Independent',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
 ]
-
-entry_points = {
-    'console_scripts': ['rsstail = rsstail.main:main']
-}
 
 kw = {
-    'name':             'rsstail',
-    'version':          '0.4.0',
-    'description':      'A command-line syndication feed monitor mimicking tail -f',
-    'long_description': open('README.rst').read(),
-    'author':           'Georgi Valkov',
-    'author_email':     'georgi.t.valkov@gmail.com',
-    'license':          'Revised BSD License',
-    'keywords':         'rss tail feed feedparser',
-    'url':              'https://github.com/gvalkov/rsstail.py',
-    'classifiers':      classifiers,
-    'packages':         ['rsstail'],
-    'install_requires': ['feedparser>=5.2.1'],
-    'entry_points':     entry_points,
-    'data_files':       [],
-    'zip_safe':         True,
+    'name': project,
+    'version': version,
+    'description': description,
+    'long_description': readme,
+    'author': module.__author__,
+    'author_email': module.__email__,
+    'license': license,
+    'keywords': [project] + description.split(' '),
+    'url': pkutils.get_url(project, user),
+    'download_url': pkutils.get_dl_url(project, user, version),
+    'classifiers': classifiers,
+    'packages': find_packages(exclude=['tests', 'docs']),
+    'include_package_data': True,
+    'install_requires': requirements,
+    'extras_require': {'develop': dev_requirements},
+    'setup_requires': setup_require,
+    'tests_require': dev_requirements,
+    'package_data': {
+        'helpers': ['helpers/*'],
+        'tests': ['tests/*'],
+    },
+    'data_files': [],
+    'platforms': ['MacOS X', 'Windows', 'Linux'],
+    'zip_safe': True,
+    'scripts': [p.join('bin', 'rsstail')],
 }
 
-trydirs_bash = [
-    '/etc/bash_completion.d',
-    '/usr/local/etc/bash_completion.d',
-]
+trydirs_bash = ['/etc/bash_completion.d', '/usr/local/etc/bash_completion.d']
 
 trydirs_zsh = [
-    '/etc/bash_completion.d'
-    # Debian
-    '/usr/share/zsh/functions/Completion/Unix/',
-    # CentOS/RHEL
-    '/usr/share/zsh/site-functions',
-    # FreeBSD
+    '/etc/bash_completion.d',  # Debian
+    '/usr/share/zsh/functions/Completion/Unix/',  # CentOS/RHEL
+    '/usr/share/zsh/site-functions',  # FreeBSD
     '/usr/local/share/zsh/site-functions/',
 ]
 
 # Try to install bash and zsh completions (emphasis on the *try*).
 if getuid() == 0:
-    dirs = [i for i in trydirs_bash if isdir(i)]
-    for path in dirs:
-        kw['data_files'].append((path, ['etc/rsstail.sh']))
+    for path in trydirs_bash:
+        if p.isdir(path):
+            kw['data_files'].append((path, ['etc/rsstail.sh']))
 
-    dirs = [i for i in trydirs_zsh if isdir(i)]
-    for path in dirs:
-        kw['data_files'].append((path, ['etc/_rsstail']))
+    for path in trydirs_zsh:
+        if p.isdir(path):
+            kw['data_files'].append((path, ['etc/_rsstail']))
 
 
 if __name__ == '__main__':

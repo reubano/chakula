@@ -5,6 +5,8 @@
 """ An RSS tailing program """
 
 import sys
+sys.path.append('../rsstail')
+
 from rsstail import main
 
 if __name__ == '__main__':

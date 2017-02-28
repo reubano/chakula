@@ -1,203 +1,71 @@
-#!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
+# vim: sw=4:ts=4:expandtab
 
-from __future__ import print_function
+""" A Python logging library with super powers """
 
-import os
 import sys
-import copy
-import time
-import signal
-import logging
 import textwrap
-import optparse
-from datetime import datetime as dt
 
-import feedparser
+from os import getcwd, path as p
+from argparse import RawTextHelpFormatter, ArgumentParser
+from pickle import dump, load
+from io import open
+from functools import partial
+from signal import signal, SIGINT
 
+import pygogo as gogo
 
-from rsstail.formatter import placeholders
-from rsstail.formatter import Formatter, hasformat
+from dateutil.parser import parse as parse_date
+from rsstail import tail, __version__
+from rsstail.formatter import PLACEHOLDERS, Formatter
 
+DEF_TIME_FMT = '%Y/%m/%d %H:%M:%S'
+DEF_INTERVAL = '300s'
+CURDIR = p.basename(getcwd())
+LOGFILE = '%s.log' % CURDIR
+FIELDS = sorted(PLACEHOLDERS)
 
-logging.basicConfig(format='! %(message)s', level=logging.INFO)
-log = logging.getLogger(__file__)
+logger = gogo.Gogo(__name__, monolog=True).logger
 
+examples = r'''
+Format specifiers must have one the following forms:
+  %%(placeholder)[flags]s
+  {placeholder:flags}
 
-__version__ = '0.4.0'
+Examples:
+  %(prog)s <url>
+  echo '<url>' | %(prog)s --reverse
+  %(prog)s -s pubdate -s title -s author <url1> <url2> <url3>
+  %(prog)s --interval 60s --newer "2011/12/20 23:50:12" <url>
+  %(prog)s --format '%%(timestamp)-30s %%(title)s\n' <url>
+  %(prog)s --format '%%(title)s was written on %%(pubdate)s\n' <url>
+  %(prog)s --format '{timestamp:<30} {title} {author}\n' <url>
+  %(prog)s --format '{timestamp:<20} {pubdate:^30} {author:>30}\n' <url>
+  %(prog)s --time-format '%%Y/%%m/%%d %%H:%%M:%%S' <url>
+  %(prog)s --time-format 'Day of the year: %%j Month: %%b' <url>
 
+Useful flags in this context are:
+  %%(placeholder)-10s - left align and pad
+  %%(placeholder)10s  - right align and pad
+  {placeholder:<10}  - left align and pad
+  {placeholder:>10}  - right align and pad
+  {placeholder:^10}  - center align and pad
+'''
 
-def parseopt(args=None):
-    opts = RsstailOption
-
-    gen_opts = [
-        opts('-v', '--verbose', action='count', help='increase verbosity'),
-        opts('-V', '--version', action='store_true', help='show version and exit'),
-        opts('-h', '--help', action='store_true', help='show this help message and exit'),
-        opts('-x', '--help-format', action='store_true', help='show formatting help and exit'),
-    ]
-
-    feed_opts = [
-        opts('-i', '--interval', action='store', help='poll every <arg> seconds', type='timespec', default='300'),
-        opts('-e', '--iterations', action='store', help='poll <arg> times and quit', type='int'),
-        opts('-n', '--initial', action='store', help='initially show <arg> items', type='int'),
-        opts('-w', '--newer', action='store', help='show items newer than <arg>'),
-        opts('-b', '--bytes', action='store', help='show only <arg> description/comment bytes', type='int'),
-        opts('-r', '--reverse', action='store_true', help='show in reverse order'),
-        opts('-s', '--striphtml', action='store_true', help='strip html tags'),
-        opts('-o', '--nofail', action='store_true', help='do not exit on error'),
-        opts('-q', '--unique', action='store_true', help='skip duplicate items')
-    ]
-
-    fmt_opts = [
-        opts('-t', '--timestamp', action='store_true', help='show timestamp'),
-        opts('-l', '--title', action='store_true', help='show title'),
-        opts('-u', '--url', action='store_true', help='show url'),
-        opts('-d', '--desc', action='store_true', help='show description'),
-        opts('-p', '--pubdate', action='store_true', help='show publication date'),
-        opts('-U', '--updated', action='store_true', help='show last update date'),
-        opts('-a', '--author', action='store_true', help='show author'),
-        opts('-c', '--comments', action='store_true', help='show comments'),
-        opts('-g', '--no-heading', action='store_true', help='do not show headings'),
-        opts('-m', '--time-format', action='store', help='date/time format'),
-        opts('-f', '--format', action='store', help='output format (overrides other format options)'),
-    ]
-
-    prog = os.path.basename(sys.argv[0])
-    prog = prog if prog != '__main__.py' else 'rsstail'
-
-    epilog = r'''
-    Examples:
-      %(prog)s --timestamp --pubdate --title --author <url1> <url2> <url3>
-      %(prog)s --reverse --title <url> <username:password@url>
-      %(prog)s --interval 60|60s|5m|1h --newer "2011/12/20 23:50:12" <url>
-      %(prog)s --format '%%(timestamp)-30s %%(title)s %%(author)s\n' <url>
-      %(prog)s --format '{timestamp:<30} {title} {author}\n' <url>
-    ''' % {'prog': prog}
-
-    if not hasformat:
-        epilog = epilog.splitlines()[:-3]
-        epilog.append(os.linesep)
-        epilog = os.linesep.join(epilog)
-
-    # Readability is better than de-duplication in this case, imho.
-    if hasformat:
-        format_help = '''\
-        Format specifiers must have one the following forms:
-          %(placeholder)[flags]s
-          {placeholder:flags}
-
-        Examples:
-          --format '%(timestamp)s %(pubdate)-30s %(author)s\\n'
-          --format '%(title)s was written by %(author)s on %(pubdate)s\\n'
-          --format '{timestamp:<20} {pubdate:^30} {author:>30}\\n'
-
-        Time format takes standard 'sprftime' specifiers:
-          --time-format '%Y/%m/%d %H:%M:%S'
-          --time-format 'Day of the year: %j Month: %b'
-
-        Useful flags in this context are:
-          %(placeholder)-10s - left align and pad
-          %(placeholder)10s  - right align and pad
-          {placeholder:<10}  - left align and pad
-          {placeholder:>10}  - right align and pad
-          {placeholder:^10}  - center align and pad
-        '''
-
-    else:
-        format_help = '''\
-        Format specifiers have the following form:
-          %(placeholder)[flags]s
-
-        Examples:
-          --format '%(timestamp)s %(pubdate)-30s %(author)s\\n'
-          --format '%(title)s was written by %(author)s on %(pubdate)s\\n'
-
-        Time format takes standard 'sprftime' specifiers:
-          --time-format '%Y/%m/%d %H:%M:%S'
-          --time-format 'Day of the year: %j Month: %b'
-
-        Useful flags in this context are:
-          %(placeholder)-10s - left align and pad
-          %(placeholder)10s  - right align and pad
-        '''
-
-    res = [textwrap.dedent(format_help), 'Available placeholders:']
-    res += sorted(map(lambda x: 2*' ' + x, placeholders))
-    format_help = os.linesep.join(res)
-
-    description = None
-
-    def _format_option_strings(option):
-        '''
-        >>> _format_option_strings(('-f', '--format'))
-        -f --format arg
-        '''
-
-        opts = []
-
-        if option._short_opts:
-            opts.append(option._short_opts[0])
-        if option._long_opts:
-            opts.append(option._long_opts[0])
-        if len(opts) > 1:
-            opts.insert(1, ' ')
-        if option.takes_value():
-            opts.append(' <arg>')
-
-        return ''.join(opts)
-
-    def _format_heading(heading):
-        return '' if heading == 'Options' else heading + ':\n'
-
-    # A more compact option formatter
-    fmt = optparse.IndentedHelpFormatter(max_help_position=40, indent_increment=1)
-    fmt.format_option_strings = _format_option_strings
-    fmt.format_heading = _format_heading
-    fmt.format_epilog = lambda x: x if x else ''
-
-    kw = {
-        'usage': '%prog [options] <url> [<url> ...]',
-        'prog': prog,
-        'epilog': textwrap.dedent(epilog),
-        'formatter': fmt,
-        'description': description,
-        'add_help_option': False,
-    }
-
-    parser = optparse.OptionParser(**kw)
-    parser.print_help_format = lambda: print(format_help)
-
-    gen_group  = optparse.OptionGroup(parser, 'General Options')
-    feed_group = optparse.OptionGroup(parser, 'Feed Options')
-    fmt_group  = optparse.OptionGroup(parser, 'Format Options')
-
-    gen_group.add_options(gen_opts)
-    feed_group.add_options(feed_opts)
-    fmt_group.add_options(fmt_opts)
-
-    parser.add_option_group(gen_group)
-    parser.add_option_group(feed_group)
-    parser.add_option_group(fmt_group)
-
-    if not args:
-        opts, args = parser.parse_args()
-    else:
-        opts, args = parser.parse_args(args)
-
-    return parser, opts, args
+available = textwrap.wrap('Available fields: {}'.format(', '.join(FIELDS)))
+epilog = [textwrap.dedent(examples)] + available
 
 
-def check_timespec(option, opt, value):
-    '''Parse and validate the 'timespec' option:
+def timespec(value):
+    """Parse the 'timespec' option:
 
-    >>> check_timespec(1)
+    >>> timespec(1)
     1
-    >>> check_timespec('5m')
+    >>> timespec('5m')
     300
-    >>> check_timespec('1h')
+    >>> timespec('1h')
     3600
-    '''
+    """
 
     try:
         return int(value)
@@ -205,240 +73,162 @@ def check_timespec(option, opt, value):
         multiply = {'s': 1, 'm': 60, 'h': 3600}
         suffix = value[-1]
 
-        msg = 'option %s: invalid timespec value %s - hint: 60, 60s, 1m, 1h'
+        msg = 'invalid timespec value {} - hint: 60, 60s, 1m, 1h'
+
         if suffix in multiply:
             try:
                 v = int(value[:-1])
                 return v * multiply[suffix]
             except ValueError:
-                raise optparse.OptionValueError(msg % (option, value))
-
-        raise optparse.OptionValueError(msg % (option, value))
-
-
-class RsstailOption(optparse.Option):
-    TYPES = optparse.Option.TYPES + ('timespec',)
-    TYPE_CHECKER = copy.copy(optparse.Option.TYPE_CHECKER)
-    TYPE_CHECKER['timespec'] = check_timespec
+                ValueError(msg.format(value))
+        else:
+            raise ValueError(msg.format(value))
 
 
-def die(msg, flunk=False, *args):
-    log.error(msg, *args)
-    if not flunk:
-        sys.exit(1)
+parser = ArgumentParser(
+    description='description: Tails 1 or more rss feeds',
+    prog='rsstail',
+    usage='%(prog)s [options] <url> [<url> ...]',
+    formatter_class=RawTextHelpFormatter,
+    epilog='\n'.join(epilog),
+)
+
+parser.add_argument(
+    dest='urls', nargs='*', default=[sys.stdin],
+    help='The urls to tail (default: reads from stdin).')
+
+i_help = 'Number of seconds between polling (default: {}).'
+
+parser.add_argument(
+    '-i', '--interval', action='store', help=i_help.format(DEF_INTERVAL),
+    type=timespec, default=DEF_INTERVAL)
+
+parser.add_argument(
+    '-N', '--iterations', action='store', type=int,
+    help='Number of times to poll before quiting (default: inf).')
+
+parser.add_argument(
+    '-I', '--initial', action='store', type=int,
+    help='Number of entries to show (default: all)')
+
+parser.add_argument(
+    '-n', '--newer', metavar='DATE', action='store',
+    help='Date by which entries should be newer than')
+
+parser.add_argument(
+    '-s', '--show', metavar='FIELD', choices=FIELDS, action='append',
+    help='Entry field to display (default: title).', default=[])
+
+t_help = "The date/time format (default: 'YYYY/MM/DD HH:MM:SS')."
+
+parser.add_argument(
+    '-t', '--time-format', metavar='FORMAT', action='store',
+    default=DEF_TIME_FMT, help=t_help)
+
+parser.add_argument(
+    '-F', '--format', action='store',
+    help='The output format (overrides other format options).')
+
+parser.add_argument(
+    '-c', '--cache', action='store',
+    help='File path to store feed information across multiple runs.')
+
+parser.add_argument(
+    '-r', '--reverse', action='store_true',
+    help='Show entries in reverse order.')
+
+parser.add_argument(
+    '-f', '--fail', action='store_true', help='Exit on error.')
+
+parser.add_argument(
+    '-u', '--unique', action='store_true', help='Skip duplicate entries.')
+
+parser.add_argument(
+    '-H', '--heading', action='store_true', help='Show field headings.')
+
+parser.add_argument(
+    '-v', '--version', help="Show version and exit.", action='store_true',
+    default=False)
+
+parser.add_argument(
+    '-V', '--verbose', help='Increase output verbosity.', action='store_true',
+    default=False)
 
 
 def sigint_handler(num=None, frame=None):
-    print('... quitting\n', file=sys.stderr)
+    logger.info('quitting...\n')
     sys.exit(0)
 
 
-def parse_date(dt_str):
-    formats = (
-        '%Y/%m/%d %H:%M:%S',
-        '%Y/%m/%d %H:%M',
-        '%Y/%m/%d',
-    )
-
-    def _try_parse(f):
-        try:
-            return time.strptime(dt_str, f)
-        except ValueError:
-            return None
-
-    res = [_try_parse(i) for i in formats]
-    if not any(res):
-        raise ValueError('date "%s" could not be parsed' % dt_str)
-
-    return [i for i in res if i][0]
+def update_cache(path, extra):
+    with open(path, 'wb') as f:
+        dump(extra, f)
 
 
-def date_fmt(date):
-    if date:
-        d = dt(*date[:6]).strftime('%Y/%m/%d %H:%M:%S')
-        return d
-
-
-def get_last_mtime(entries):
+def load_extra(urls, cache_path):
     try:
-        last = max(entries, key=lambda e: e.updated_parsed)
-        return last.updated_parsed
-    except (ValueError, AttributeError):
-        return None
+        with open(cache_path, 'rb') as f:
+            extra = load(f)
+    except FileNotFoundError:
+        extra = {}
+
+    return extra
 
 
-def setup_formatter(opts):
-    fmt = []
-    wh = not opts.no_heading
+def run():
+    """CLI runner"""
+    args = parser.parse_args()
+    kwargs = {'monolog': True, 'verbose': args.verbose}
+    logger = gogo.Gogo(__name__, **kwargs).get_logger('run')
+    signal(SIGINT, sigint_handler)
 
-    if opts.timestamp:
-        fmt.append('%(timestamp)s')
+    if args.version:
+        logger.info('rsstail v%s' % __version__)
+        exit(0)
 
-    if opts.pubdate:
-        fmt.append('Pubdate: %(pubdate)s' if wh else '%(pubdate)s')
-
-    if opts.updated:
-        fmt.append('Updated: %(updated)s' if wh else '%(updated)s')
-
-    if opts.title:
-        fmt.append('Title: %(title)-50s' if wh else '%(title)-50s')
-
-    if opts.author:
-        fmt.append('Author: %(author)s' if wh else '%(author)s')
-
-    if opts.url:
-        fmt.append('Link: %(link)s' if wh else '%(link)s')
-
-    if opts.desc:
-        fmt.append('\nDescription: %(desc)s\n' if wh else '\n%(desc)s\n')
-
-    if opts.comments:
-        fmt.append('Comments: %(comments)s' if wh else '%(comments)s')
-
-    time_fmt = '%Y/%m/%d %H:%M:%S' if not opts.time_format else opts.time_format
-
-    if opts.format:
-        fmt = opts.format.replace('\\n', '\n')
-    elif not fmt:
-        # default formatter
-        fmt = 'Title: %(title)s\n'
+    if args.newer:
+        newer = parse_date(args.newer).timetuple()
+        logger.debug('showing entries newer than %s', newer)
     else:
-        fmt.append('\n')
-        fmt = '  '.join(fmt)
+        newer = None
 
-    formatter = Formatter(fmt, time_fmt, opts.striphtml)
+    if args.format:
+        fmt = args.format.replace('\\n', '\n')
+        formatter = Formatter(fmt, args.time_format)
+    else:
+        show = args.show or ['title']
+        pargs = (show, args.time_format, args.heading)
+        formatter = Formatter.from_fields(*pargs)
 
-    log.debug('using format: %r', formatter.fmt)
-    log.debug('using time format: %r', formatter.time_fmt)
-    return formatter
+    logger.debug('using format: %r', formatter.fmt)
+    logger.debug('using time format: %r', formatter.time_fmt)
 
+    info = {
+        'seen': set() if args.unique else None, 'newer': newer,
+        'reverse': args.reverse, 'iterations': args.iterations,
+        'interval': args.interval, 'formatter': formatter,
+        'initial': args.initial, 'logger': logger, 'fail': args.fail}
 
-def tick(feeds, opts, formatter, seen_id_hashes, iteration, stream=sys.stdout):
-    for url, last_element_info in feeds.items():
-        etag, last_mtime, last_update = last_element_info
+    first = args.urls[0]
 
-        log.debug('parsing: %r', url)
-        log.debug('etag:  %s', etag)
-        log.debug('mtime: %s', date_fmt(last_mtime))
-
-        feed = feedparser.parse(url, etag=etag, modified=last_mtime)
-
-        if feed.bozo == 1:
-            safeexc = (feedparser.CharacterEncodingOverride,)
-            if not isinstance(feed.bozo_exception, safeexc):
-                msg = 'feed error %r:\n%s'
-                die(msg, opts.nofail, url, feed.bozo_exception)
-
-        if iteration == 1 and isinstance(opts.initial, int):
-            entries = feed.entries[:opts.initial]
-        else:
-            entries = feed.entries
-
-        if opts.newer:
-            log.debug('showing entries older than %s', date_fmt(last_update))
-            entries = [entry for entry in entries if entry.date_parsed > opts.newer]
-
-        if last_update:
-            log.debug('showing entries older than %s', date_fmt(last_update))
-            entries = [entry for entry in entries if entry.updated_parsed > last_update]
-
-        new_last_update = get_last_mtime(entries)
-        if not new_last_update and not entries:
-            new_last_update = last_update
-
-        if opts.reverse:
-            entries = reversed(entries)
-
-        for entry in entries:
-            if seen_id_hashes is not None:
-                id_hash = hash(entry.id)
-                if id_hash in seen_id_hashes:
-                    continue
-
-                # Grows indefinitely at a rate of 32 bytes per entry.
-                seen_id_hashes[id_hash] = None
-
-            out = formatter(entry)
-            stream.write(out)
-        stream.flush()
-
-        # needed for fetching/showing only new entries on next run
-        etag = getattr(feed, 'etag', None)
-        last_mtime = getattr(feed.feed, 'modified_parsed', None)
-
-        feeds[url] = (etag, last_mtime, new_last_update)
-
-
-def main():
-    parser, opts, args = parseopt()
-
-    if opts.help or len(sys.argv) == 1:
+    if hasattr(first, 'isatty') and first.isatty():  # called with no args
+        # This doesn't work for scripttest though
         parser.print_help()
         sys.exit(0)
-
-    if opts.help_format:
-        parser.print_help_format()
-        sys.exit(0)
-
-    if opts.version:
-        print('rsstail version %s' % __version__)
-        sys.exit(0)
-
-    if len(args) == 0:
-        parser.print_help()
-        sys.exit(0)
-
-    if opts.verbose:
-        log.setLevel(logging.DEBUG)
-
-    if opts.newer:
-        try:
-            opts.newer = parse_date(opts.newer)
-        except ValueError as e:
-            die(e)
-        log.debug('showing entries newer than %s', opts.newer)
+    elif hasattr(first, 'read'):  # piped into sdtin
+        urls = first.read().splitlines()
     else:
-        opts.newer = None
+        urls = args.urls
 
-    signal.signal(signal.SIGINT, sigint_handler)
+    if args.cache:
+        extra = load_extra(urls, args.cache)
+        info['tail_handler'] = partial(update_cache, args.cache)
+    else:
+        extra = {}
 
-    formatter = setup_formatter(opts)
-
-    # { url1 : (None,  # etag
-    #           None,  # last modified (time tuple)
-    #           None)} # last update time (time tuple)
-    feeds = dict.fromkeys(args, (None, None, None))
-
-    # global iteration count
-    iteration = 1
-
-    # The hashes of all seen post IDs. Maintained only if opts.unique is True.
-    seen_id_hashes = dict() if opts.unique else None
-
-    # handle stdout encoding on Python 2.x
-    if sys.version_info.major == 2 and not sys.stdout.isatty():
-        import locale, codecs
-        encoding = locale.getpreferredencoding()
-        sys.stdout = codecs.getwriter(encoding)(sys.stdout)
-        # todo: does this break PYTHONENCODING?
-
-    while True:
-        try:
-            tick(feeds, opts, formatter, seen_id_hashes, iteration)
-
-            if isinstance(opts.iterations, int) and iteration >= opts.iterations:
-                log.debug('maximum number of iterations reached: %d', opts.iterations)
-                sigint_handler()
-
-            iteration += 1
-
-            log.debug('sleeping for %d seconds', opts.interval)
-            time.sleep(opts.interval)
-        except Exception:
-            if not opts.nofail:
-                log.exception('')
-                sys.exit(1)
+    tail(urls, extra=extra, **info)
+    sys.exit(0)
 
 
 if __name__ == '__main__':
-    main()
+    run()

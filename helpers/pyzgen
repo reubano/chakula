@@ -26,6 +26,7 @@ cat > "$BUILDDIR/__main__.py" <<EOF
 # -*- coding: utf-8; -*-
 
 import sys
+
 if sys.version_info < (3,0):
     import rsstail.feedparser2
     sys.modules['feedparser'] = rsstail.feedparser2

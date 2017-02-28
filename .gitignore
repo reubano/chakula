@@ -13,4 +13,6 @@ pip-log.txt
 tags
 tests/test-output
 __pycache__/
-doc/_build/
+docs/_build/
+.scripttest/
+.cache/
