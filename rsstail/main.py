@@ -156,7 +156,7 @@ parser.add_argument(
 
 
 def sigint_handler(num=None, frame=None):
-    logger.info('... quitting\n')
+    logger.info('quitting...\n')
     sys.exit(0)
 
 

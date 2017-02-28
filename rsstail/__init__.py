@@ -34,7 +34,7 @@ def write_entries(entries, **kwargs):
     formatter = kwargs.get('formatter')
 
     if kwargs.get('reverse'):
-        entries = reversed(entries)
+        entries.reverse()
 
     if seen is not None:
         to_add = [entry for entry in entries if entry.id not in seen]
