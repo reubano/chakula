@@ -11,7 +11,7 @@ from traceback import format_exception
 import feedparser
 import pygogo as gogo
 
-__version__ = '0.5.0'
+__version__ = '0.6.0'
 __title__ = 'RSS tail'
 __package_name__ = 'rsstail'
 __author__ = 'Reuben Cummings'
