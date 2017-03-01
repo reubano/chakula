@@ -7,6 +7,7 @@ import time
 from datetime import datetime as dt
 from functools import reduce, lru_cache
 from traceback import format_exception
+from bisect import bisect
 
 import feedparser
 import pygogo as gogo
@@ -103,6 +104,20 @@ def parse_url(url, iteration, initial=None, **kwargs):
     return entries, info
 
 
+def parse_interval(interval):
+    pairs = [('secs', 0), ('minutes', 60), ('hours', 3600), ('days', 86400)]
+    grades = [pair[0] for pair in pairs]
+    breakpoints = [pair[1] for pair in pairs][1:]
+
+    def get_grade(score):
+        i = bisect(breakpoints, score)
+        return grades[i]
+
+    grade = get_grade(interval)
+    divisor = dict(pairs)[grade]
+    return round(interval / divisor, 2), grade
+
+
 def tail(urls, iteration=0, interval=300, extra=None, **kwargs):
     logger = kwargs.get('logger', LOGGER)
     extra = extra or {}
@@ -114,7 +129,8 @@ def tail(urls, iteration=0, interval=300, extra=None, **kwargs):
     elif iteration:
         # sleep first so that we don't have to wait an interval before checking
         # iteration count
-        logger.debug('sleeping for %d seconds', interval)
+        parsed = parse_interval(interval)
+        logger.debug('sleeping for {} {}'.format(*parsed))
         time.sleep(interval)
 
     for url in urls:
