@@ -19,6 +19,12 @@ from dateutil.parser import parse as parse_date
 from rsstail import tail, __version__
 from rsstail.formatter import PLACEHOLDERS, Formatter
 
+try:
+    from redisworks import Root as OldRoot
+except ImportError:
+    OldRoot = object
+
+
 DEF_TIME_FMT = '%Y/%m/%d %H:%M:%S'
 DEF_INTERVAL = '300s'
 CURDIR = p.basename(getcwd())
@@ -155,22 +161,45 @@ parser.add_argument(
     default=False)
 
 
+class Root(OldRoot):
+    def __init__(self, conn, return_object=True, *args, **kwargs):
+        super(Root, self).__init__(*args, **kwargs)
+        self.red = conn
+        self.return_object = return_object
+        self.setup()
+
+
 def sigint_handler(signal=None, frame=None):
     logger.info('\nquitting...\n')
     sys.exit(0)
 
 
-def update_cache(path, extra):
-    with open(path, 'wb') as f:
-        dump(extra, f)
+def update_cache(path, extra, redis=False):
+    if redis:
+        try:
+            items = extra.__dict__['_registry'].evaluated_items
+        except AttributeError:
+            path.extra = extra
+        else:
+            path.extra = items['root.extra']
+    else:
+        with open(path, 'wb') as f:
+            dump(extra, f)
 
 
-def load_extra(cache_path):
-    try:
-        with open(cache_path, 'rb') as f:
-            extra = load(f)
-    except FileNotFoundError:
-        extra = {}
+def load_extra(path, redis=False):
+    if redis:
+        extra = Root(path).extra or {}
+
+        for k, v in extra.items():
+            v['updated'] = tuple(v.get('updated') or [])
+            v['modified'] = tuple(v.get('modified') or [])
+    else:
+        try:
+            with open(path, 'rb') as f:
+                extra = load(f)
+        except FileNotFoundError:
+            extra = {}
 
     return extra
 

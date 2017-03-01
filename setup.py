@@ -61,7 +61,10 @@ kw = {
     'packages': find_packages(exclude=['tests', 'docs']),
     'include_package_data': True,
     'install_requires': requirements,
-    'extras_require': {'develop': dev_requirements},
+    'extras_require': {
+        'develop': dev_requirements,
+        'redis': ['redisworks>=0.2.7,<0.3.0'],
+    },
     'setup_requires': setup_require,
     'tests_require': dev_requirements,
     'package_data': {
