@@ -11,7 +11,7 @@ from traceback import format_exception
 import feedparser
 import pygogo as gogo
 
-__version__ = '0.5.0'
+__version__ = '0.6.0'
 __title__ = 'RSS tail'
 __package_name__ = 'rsstail'
 __author__ = 'Reuben Cummings'
@@ -48,9 +48,15 @@ def write_entries(entries, **kwargs):
         else:
             content = '{}\n'.format(entry['title'])
 
-        stream.write(content)
+        try:
+            stream.write(content)
+        except TypeError:
+            stream.write(content.encode('utf-8'))
 
-    stream.flush()
+    try:
+        stream.flush()
+    except AttributeError:
+        pass
 
     if kwargs.get('write_handler'):
         kwargs['write_handler'](to_add)

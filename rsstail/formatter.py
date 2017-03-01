@@ -76,6 +76,6 @@ class Formatter(object):
         if field in {'pubdate', 'updated'}:
             value = time.strftime(self.time_fmt, value)
         elif field == 'timestamp':
-            value = dt.now().strftime(self.time_fmt)
+            value = dt.utcnow().strftime(self.time_fmt)
 
         return value

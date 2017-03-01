@@ -70,28 +70,9 @@ kw = {
     },
     'data_files': [],
     'platforms': ['MacOS X', 'Windows', 'Linux'],
-    'zip_safe': True,
+    'zip_safe': False,
     'scripts': [p.join('bin', 'rsstail')],
 }
-
-trydirs_bash = ['/etc/bash_completion.d', '/usr/local/etc/bash_completion.d']
-
-trydirs_zsh = [
-    '/etc/bash_completion.d',  # Debian
-    '/usr/share/zsh/functions/Completion/Unix/',  # CentOS/RHEL
-    '/usr/share/zsh/site-functions',  # FreeBSD
-    '/usr/local/share/zsh/site-functions/',
-]
-
-# Try to install bash and zsh completions (emphasis on the *try*).
-if getuid() == 0:
-    for path in trydirs_bash:
-        if p.isdir(path):
-            kw['data_files'].append((path, ['etc/rsstail.sh']))
-
-    for path in trydirs_zsh:
-        if p.isdir(path):
-            kw['data_files'].append((path, ['etc/_rsstail']))
 
 
 if __name__ == '__main__':

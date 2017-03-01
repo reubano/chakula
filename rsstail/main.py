@@ -155,8 +155,8 @@ parser.add_argument(
     default=False)
 
 
-def sigint_handler(num=None, frame=None):
-    logger.info('quitting...\n')
+def sigint_handler(signal=None, frame=None):
+    logger.info('\nquitting...\n')
     sys.exit(0)
 
 
@@ -165,7 +165,7 @@ def update_cache(path, extra):
         dump(extra, f)
 
 
-def load_extra(urls, cache_path):
+def load_extra(cache_path):
     try:
         with open(cache_path, 'rb') as f:
             extra = load(f)
@@ -221,7 +221,7 @@ def run():
         urls = args.urls
 
     if args.cache:
-        extra = load_extra(urls, args.cache)
+        extra = load_extra(args.cache)
         info['tail_handler'] = partial(update_cache, args.cache)
     else:
         extra = {}
