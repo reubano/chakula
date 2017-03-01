@@ -16,8 +16,8 @@ from signal import signal, SIGINT
 import pygogo as gogo
 
 from dateutil.parser import parse as parse_date
-from rsstail import tail, __version__
-from rsstail.formatter import PLACEHOLDERS, Formatter
+from chakula import tail, __version__
+from chakula.formatter import PLACEHOLDERS, Formatter
 
 try:
     from redisworks import Root as OldRoot
@@ -93,7 +93,7 @@ def timespec(value):
 
 parser = ArgumentParser(
     description='description: Tails 1 or more rss feeds',
-    prog='rsstail',
+    prog='chakula',
     usage='%(prog)s [options] <url> [<url> ...]',
     formatter_class=RawTextHelpFormatter,
     epilog='\n'.join(epilog),
@@ -212,7 +212,7 @@ def run():
     signal(SIGINT, sigint_handler)
 
     if args.version:
-        logger.info('rsstail v%s' % __version__)
+        logger.info('chakula v%s' % __version__)
         exit(0)
 
     if args.newer:

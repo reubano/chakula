@@ -13,8 +13,8 @@ import feedparser
 import pygogo as gogo
 
 __version__ = '0.6.0'
-__title__ = 'RSS tail'
-__package_name__ = 'rsstail'
+__title__ = 'chakula'
+__package_name__ = 'chakula'
 __author__ = 'Reuben Cummings'
 __description__ = 'An RSS feed monitor mimicking tail -f'
 __email__ = 'reubano@gmail.com'

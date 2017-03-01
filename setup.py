@@ -19,7 +19,7 @@ sys.dont_write_bytecode = True
 requirements = set(pkutils.parse_requirements('requirements.txt'))
 dev_requirements = set(pkutils.parse_requirements('dev-requirements.txt'))
 readme = pkutils.read('README.rst')
-module = pkutils.parse_module(p.join(PARENT_DIR, 'rsstail', '__init__.py'))
+module = pkutils.parse_module(p.join(PARENT_DIR, 'chakula', '__init__.py'))
 license = module.__license__
 version = module.__version__
 project = module.__package_name__
@@ -74,7 +74,7 @@ kw = {
     'data_files': [],
     'platforms': ['MacOS X', 'Windows', 'Linux'],
     'zip_safe': False,
-    'scripts': [p.join('bin', 'rsstail')],
+    'scripts': [p.join('bin', 'chakula')],
 }
 
 

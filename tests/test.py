@@ -11,8 +11,8 @@ Provides scripttests pygogo CLI functionality.
 
 import sys
 
-sys.path.append('../rsstail')
-import rsstail                              # noqa
+sys.path.append('../chakula')
+import chakula                              # noqa
 
 from difflib import unified_diff            # noqa
 from os import path as p                    # noqa
@@ -97,7 +97,7 @@ def main(script, tests, verbose=False, stop=True):
 
 
 if __name__ == '__main__':
-    script = p.join(PARENT_DIR, 'bin', 'rsstail')
+    script = p.join(PARENT_DIR, 'bin', 'chakula')
     feed = p.join(CUR_DIR, 'feeds', 'jenkins.rss')
     cache_path = p.join(PARENT_DIR, '.scripttest', 'cache')
     cache = '--cache {}'.format(cache_path)
@@ -115,7 +115,7 @@ if __name__ == '__main__':
 
     tests = [
         (['--help'], [], True),
-        (['--version'], [], 'rsstail v%s\n' % rsstail.__version__),
+        (['--version'], [], 'chakula v%s\n' % chakula.__version__),
         (['--iterations 1', '--initial 3'], [feed], ''.join(exp[:3])),
         (['--iterations 1', '-s title'], [feed], ''.join(exp)),
         (
