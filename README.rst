@@ -1,6 +1,8 @@
 chakula
 =======
 
+|versions| |pypi|
+
 *chakula* is a Python library and command-line rss feed monitor with behavior
 similar to ``tail -f``. *chakula* is based off of rsstail.py_, but can be used as
 a library to call a custom function each time new entries appear in the feed.
@@ -88,6 +90,15 @@ License
 
 *chakula* is released under the terms of the `Revised BSD License`_.
 
+.. |travis| image:: https://img.shields.io/travis/reubano/chakula/master.svg
+    :target: https://travis-ci.org/reubano/chakula
+
+.. |versions| image:: https://img.shields.io/pypi/pyversions/chakula.svg
+    :target: https://pypi.python.org/pypi/chakula
+
+.. |pypi| image:: https://img.shields.io/pypi/v/chakula.svg
+    :target: https://pypi.python.org/pypi/chakula
+
 .. _rsstail.py:    http://github.com/gvalkov/rsstail.py/
 .. _rsstail:    http://www.vanheusden.com/rsstail/
 .. _feedstail:  http://pypi.python.org/pypi/feedstail/
@@ -96,3 +107,4 @@ License
 .. _feedparser: http://code.google.com/p/feedparser/
 .. _`Revised BSD License`: https://raw.github.com/reubano/chakula.py/master/LICENSE
 .. _pypi:        https://pypi.python.org/pypi/chakula
+

@@ -4,7 +4,7 @@
 
 import sys
 
-from os import path as p, getuid
+from os import path as p
 
 import pkutils
 
@@ -33,8 +33,8 @@ classifiers = [
     pkutils.get_status(version),
     'Natural Language :: English',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
+    'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Environment :: Console',
     'Topic :: Software Development :: Libraries :: Python Modules',
