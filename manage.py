@@ -13,7 +13,8 @@ BASEDIR = p.dirname(__file__)
 
 def upload_():
     """Upload distribution files"""
-    check_call('twine upload %s' % p.join(BASEDIR, 'dist', '*'), shell=True)
+    files = p.join(BASEDIR, 'dist', '*')
+    check_call('twine upload {}'.format(files).split(' '))
 
 
 def sdist_():
@@ -90,7 +91,7 @@ def test(where=None, stop=None, **kwargs):
     opts += ' --processes=-1' if kwargs.get('parallel') else ''
     opts += ' --detailed-errors' if kwargs.get('verbose') else ''
     opts += ' --debug=nose.loader' if kwargs.get('debug') else ''
-    opts += 'w %s' % where if where else ''
+    opts += 'w {}'.format(where or '')
 
     try:
         if kwargs.get('tox'):
