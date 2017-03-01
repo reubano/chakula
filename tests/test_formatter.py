@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from rsstail.formatter import Formatter
+from chakula.formatter import Formatter
 
 
 def test_placeholder_style_detect():
