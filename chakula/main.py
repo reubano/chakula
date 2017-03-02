@@ -168,7 +168,7 @@ class Root(OldRoot):
         self.return_object = return_object
         self.setup()
 
-get_root = lru_cache(maxsize=8)(lambda path: Root(path))
+get_root = lru_cache(maxsize=8)(lambda conn: Root(conn))
 
 
 def sigint_handler(signal=None, frame=None):
@@ -186,9 +186,13 @@ def update_cache(path, extra, redis=False):
             root.extra = extra
         else:
             root.extra = items['root.extra']
+
+        return root.red
     else:
         with open(path, 'wb') as f:
             dump(extra, f)
+
+        return path
 
 
 def load_extra(path, redis=False):
