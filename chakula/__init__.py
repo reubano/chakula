@@ -30,6 +30,7 @@ def last_update(entry_dates):
 
 
 def write_entries(entries, **kwargs):
+    logger = kwargs.get('logger', LOGGER)
     stream = kwargs.get('stream', sys.stdout)
     seen = kwargs.get('seen')
     formatter = kwargs.get('formatter')
@@ -42,6 +43,8 @@ def write_entries(entries, **kwargs):
         seen.update(entry.id for entry in to_add)
     else:
         to_add = entries
+
+    logger.debug('Writing {} new entries'.format(len(to_add)))
 
     for entry in to_add:
         if formatter:
@@ -124,13 +127,13 @@ def tail(urls, iteration=0, interval=300, extra=None, **kwargs):
 
     if kwargs.get('iterations') and iteration >= kwargs['iterations']:
         msg = 'maximum number of iterations reached: %d'
-        logger.debug(msg, kwargs['iterations'])
+        logger.info(msg, kwargs['iterations'])
         return extra
     elif iteration:
         # sleep first so that we don't have to wait an interval before checking
         # iteration count
         parsed = parse_interval(interval)
-        logger.debug('sleeping for {} {}'.format(*parsed))
+        logger.info('sleeping for {} {}'.format(*parsed))
         time.sleep(interval)
 
     for url in urls:
