@@ -10,7 +10,7 @@ from os import getcwd, path as p
 from argparse import RawTextHelpFormatter, ArgumentParser
 from pickle import dump, load
 from io import open
-from functools import partial
+from functools import partial, lru_cache
 from signal import signal, SIGINT
 
 import pygogo as gogo
@@ -168,6 +168,8 @@ class Root(OldRoot):
         self.return_object = return_object
         self.setup()
 
+get_root = lru_cache(maxsize=8)(lambda path: Root(path))
+
 
 def sigint_handler(signal=None, frame=None):
     logger.info('\nquitting...\n')
@@ -176,12 +178,14 @@ def sigint_handler(signal=None, frame=None):
 
 def update_cache(path, extra, redis=False):
     if redis:
+        root = get_root(path)
+
         try:
             items = extra.__dict__['_registry'].evaluated_items
         except AttributeError:
-            path.extra = extra
+            root.extra = extra
         else:
-            path.extra = items['root.extra']
+            root.extra = items['root.extra']
     else:
         with open(path, 'wb') as f:
             dump(extra, f)
@@ -189,7 +193,8 @@ def update_cache(path, extra, redis=False):
 
 def load_extra(path, redis=False):
     if redis:
-        extra = Root(path).extra or {}
+        root = get_root(path)
+        extra = root.extra or {}
 
         for k, v in extra.items():
             v['updated'] = tuple(v.get('updated') or [])
