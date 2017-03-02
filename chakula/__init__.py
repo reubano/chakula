@@ -12,7 +12,7 @@ from bisect import bisect
 import feedparser
 import pygogo as gogo
 
-__version__ = '0.7.4'
+__version__ = '0.8.0'
 __title__ = 'chakula'
 __package_name__ = 'chakula'
 __author__ = 'Reuben Cummings'
