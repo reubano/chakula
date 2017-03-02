@@ -186,9 +186,13 @@ def update_cache(path, extra, redis=False):
             root.extra = extra
         else:
             root.extra = items['root.extra']
+
+        return root.red
     else:
         with open(path, 'wb') as f:
             dump(extra, f)
+
+        return path
 
 
 def load_extra(path, redis=False):
